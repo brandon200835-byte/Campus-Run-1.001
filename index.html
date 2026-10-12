@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat, Orders &amp; Photo Proof</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #171d2b;
+    --panel-2: #1f2739;
+    --line: #2b3449;
+    --text: #e8ecf5;
+    --muted: #93a0b8;
+    --accent: #4f8cff;
+    --accent-2: #27c093;
+    --warn: #ffb02e;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 18px; margin: 0; }
+  .who { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  input, textarea, select, button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+  button {
+    cursor: pointer;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+  button.ok { background: var(--accent-2); border-color: var(--accent-2); }
+  button:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  main { max-width: 860px; margin: 0 auto; padding: 18px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 auto; }
+  .chat {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .msg {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .msg.post { border-left-color: var(--warn); }
+  .msg.order { border-left-color: var(--accent-2); }
+  .msg.system { border-left-color: var(--muted); font-style: italic; color: var(--muted); }
+  .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .body { white-space: pre-wrap; word-break: break-word; }
+  .thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .thumb { width: 140px; }
+  .thumb img { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+  .thumb span { font-size: 11px; color: var(--muted); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .actions button { flex: 0 0 auto; padding: 6px 10px; font-size: 13px; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+  }
+  .empty { color: var(--muted); text-align: center; padding: 20px; }
+  .posts-list { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 4px; }
+  .post-item {
+    all: unset;
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--warn);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .post-item:hover { border-color: var(--accent); }
+  .post-item.selected { border-left-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2) inset; }
+  .post-item-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .post-item-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .post-item-text { white-space: pre-wrap; word-break: break-word; }
+  .post-item-meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .menu-panel {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .menu-category { margin-bottom: 10px; }
+  .menu-category:last-child { margin-bottom: 0; }
+  .menu-category h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .menu-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .menu-item {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-weight: 400;
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .menu-item:hover { border-color: var(--accent); color: #fff; }
+  .menu-item.picked { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .time-field { display: flex; flex-direction: column; gap: 4px; }
+  .time-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .time-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    min-width: 130px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    cursor: ns-resize;
+    touch-action: none;
+    user-select: none;
+  }
+  .time-box:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .time-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .time-arrow {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 0 2px;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .time-arrow:hover { color: #fff; }
+  dialog {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    width: min(520px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  video, #snapPreview { width: 100%; border-radius: 10px; background: #000; display: block; }
+  .hint { font-size: 12px; color: var(--muted); margin: 8px 0; }
+  .err { color: #ff7a7a; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Chat, Orders &amp; Photo Proof</h1>
+  <label class="who">
+    You are:
+    <input id="userName" value="Alex" size="12" />
+    <button class="secondary" id="switchUser" title="Quickly switch between two demo people">Switch person</button>
+  </label>
+</header>
+
+<main>
+  <section class="card">
+    <h2 style="margin-top:0;font-size:15px;">Create a post</h2>
+    <div class="row">
+      <input id="postText" placeholder="What are you offering or asking about?" style="flex:1 1 320px;" />
+      <button id="createPost">Create post</button>
+    </div>
+    <div id="postOptions" hidden>
+      <div class="row" id="restaurantChips" style="margin-top:10px;"></div>
+      <div class="row" style="margin-top:10px;align-items:flex-start;">
+        <div class="time-field">
+          <label class="time-label" for="startBox">Available from</label>
+          <div class="time-box" id="startBox" tabindex="0" title="Drag up/down, scroll, or use the arrows to change the time">
+            <button type="button" class="time-arrow" data-target="start" data-dir="1" aria-label="Later start time">▲</button>
+            <span class="time-value" id="startValue"></span>
+            <button type="button" class="time-arrow" data-target="start" data-dir="-1" aria-label="Earlier start time">▼</button>
+          </div>
+        </div>
+        <div class="time-field">
+          <label class="time-label" for="endBox">Until</label>
+          <div class="time-box" id="endBox" tabindex="0" title="Drag up/down, scroll, or use the arrows to change the time">
+            <button type="button" class="time-arrow" data-target="end" data-dir="1" aria-label="Later end time">▲</button>
+            <span class="time-value" id="endValue"></span>
+            <button type="button" class="time-arrow" data-target="end" data-dir="-1" aria-label="Earlier end time">▼</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Anyone in the chat can reply to a post or place an order on it directly. After an order is placed, the buyer takes a photo, then the poster takes a photo — both appear in the chat.</p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0;font-size:15px;">Posts</h2>
+    <div class="row" style="align-items:center;">
+      <label style="display:flex;align-items:center;gap:8px;flex:0 1 auto;">
+        Sort by
+        <select id="postSort">
+          <option value="time-desc">Newest first</option>
+          <option value="time-asc">Oldest first</option>
+          <option value="restaurant">Restaurant</option>
+        </select>
+      </label>
+    </div>
+    <div class="posts-list" id="postsList" style="margin-top:12px;"><div class="empty">No posts yet. Create one above.</div></div>
+  </section>
+
+  <section class="card" id="postThreadCard" hidden>
+    <h2 id="postThreadTitle" style="margin-top:0;font-size:15px;">Conversation</h2>
+    <div class="chat" id="postThread"></div>
+  </section>
+</main>
+
+<dialog id="inputDialog">
+  <h3 id="inputTitle" style="margin-top:0;">Reply</h3>
+  <textarea id="inputText" rows="3" style="width:100%;"></textarea>
+  <div class="menu-panel" id="orderMenuPanel" hidden style="margin-top:10px;max-height:40vh;overflow-y:auto;">
+    <p class="hint" style="margin:0 0 8px;">Tap menu items to add them to your order text above.</p>
+    <div id="orderMenuCategories"></div>
+  </div>
+  <div class="row" style="margin-top:10px;">
+    <button id="inputOk">OK</button>
+    <button id="inputCancel" class="secondary">Cancel</button>
+  </div>
+</dialog>
+
+<dialog id="cameraDialog">
+  <h3 id="camTitle" style="margin-top:0;">Take a picture</h3>
+  <video id="camVideo" autoplay playsinline muted></video>
+  <img id="snapPreview" alt="Captured photo" hidden />
+  <p class="hint" id="camHint">Allow camera access, then press Capture.</p>
+  <p class="err" id="camError" hidden></p>
+  <div class="row">
+    <button id="camCapture">Capture</button>
+    <button id="camRetake" class="secondary" hidden>Retake</button>
+    <button id="camUse" class="ok" hidden>Use photo</button>
+    <button id="camCancel" class="secondary">Cancel</button>
+  </div>
+  <p class="hint">No camera? <input type="file" accept="image/*" capture="environment" id="camFile" style="padding:4px;" /></p>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  const postsListEl = document.getElementById("postsList");
+  const postSortEl = document.getElementById("postSort");
+  const postThreadCard = document.getElementById("postThreadCard");
+  const postThreadTitleEl = document.getElementById("postThreadTitle");
+  const postThreadEl = document.getElementById("postThread");
+  const userNameEl = document.getElementById("userName");
+  const messages = [];
+  let seq = 0;
+  let selectedPostId = null;
+
+  /* ---------- Restaurants & menus ---------- */
+  const RESTAURANTS = {
+    "cookout-monroe": {
+      name: "Cook Out – Monroe",
+      icon: "🍔",
+      menu: {
+        "Trays (entrée + 2 sides + drink)": [
+          "Big Double Burger Tray", "BBQ Sandwich Tray", "Cajun Chicken Sandwich Tray",
+          "Chicken Strips Tray", "Quesadilla Tray", "Corn Dog Tray", "BLT Tray",
+          "Hot Dog Tray", "Chicken Wrap Tray"
+        ],
+        "Burgers": [
+          "Small Hamburger", "Small Cheeseburger", "Cook Out Burger", "Cook Out Cheeseburger",
+          "Big Double Burger", "Big Double Cheeseburger", "Huge Burger", "Huge Cheeseburger",
+          "Bacon Cheddar Burger", "Cook Out Style Burger"
+        ],
+        "Hot Dogs": [
+          "Plain Hot Dog", "Cook Out Style Hot Dog", "Cheese Dog", "Bacon Cheddar Hot Dog",
+          "Mexi Hot Dog", "Corn Dog"
+        ],
+        "Sandwiches & Wraps": [
+          "BBQ Sandwich", "Grilled Chicken Sandwich", "Cajun Chicken Sandwich", "BBQ Chicken Sandwich",
+          "Club Chicken Sandwich", "Crispy Chicken Wrap", "Cajun Chicken Wrap", "Ranch Chicken Wrap",
+          "Honey Mustard Chicken Wrap", "Cheese Quesadilla", "Chicken Quesadilla", "BLT Sandwich",
+          "Chicken Strips (3 pc)"
+        ],
+        "Sides": [
+          "Hushpuppies", "French Fries", "Cajun Fries", "Onion Rings", "Chicken Nuggets",
+          "Coleslaw", "Side Quesadilla", "White Cheddar Bites", "Cheese Bites", "Baked Beans",
+          "Corn on the Cob", "Bowl of Chili"
+        ],
+        "Famous Milkshakes": [
+          "Vanilla Shake", "Chocolate Malt Shake", "Strawberry Shake", "Banana Pudding Shake",
+          "Banana Berry Shake", "Blueberry Shake", "Cappuccino Shake", "Caramel Shake",
+          "Cheesecake Shake", "Cherry Shake", "Double Chocolate Shake", "Hershey's Chocolate Shake",
+          "M&M Shake", "Mocha Shake", "Oreo Shake", "Peach Shake", "Peanut Butter Fudge Shake",
+          "Pineapple Shake", "Reese's Cup Shake", "Snickers Shake"
+        ],
+        "Drinks & Extras": [
+          "Fountain Drink (Regular)", "Fountain Drink (Large)", "Sweet Tea", "Unsweet Tea", "Float"
+        ]
+      }
+    },
+    "subway-monroe": {
+      name: "Subway – Monroe",
+      icon: "🥪",
+      menu: {
+        "Subway Series Sandwiches (6-inch)": [
+          "The Boss", "The Hotshot Italiano", "Titan Turkey", "The Outlaw",
+          "The Great Garlic", "Monster", "Ultimate B.M.T.", "Teriyaki Blitz"
+        ],
+        "Classic Sandwiches (6-inch)": [
+          "Italian B.M.T.", "Spicy Italian", "Veggie Delite", "Cold Cut Combo",
+          "Turkey Breast", "Black Forest Ham", "Oven-Roasted Turkey & Ham", "Roast Beef",
+          "Tuna", "Meatball Marinara", "Chicken & Bacon Ranch", "Steak & Cheese",
+          "Sweet Onion Chicken Teriyaki", "Subway Club", "B.L.T.", "Buffalo Chicken",
+          "Grilled Chicken", "Rotisserie-Style Chicken"
+        ],
+        "Wraps": [
+          "Oven-Roasted Turkey Wrap", "Black Forest Ham Wrap", "Chicken & Bacon Ranch Wrap",
+          "Tuna Wrap", "Veggie Delite Wrap", "Buffalo Chicken Wrap",
+          "Sweet Onion Chicken Teriyaki Wrap", "Steak & Cheese Wrap", "B.L.T. Wrap"
+        ],
+        "Salads": [
+          "Veggie Delite Salad", "Tuna Salad", "Oven-Roasted Turkey Salad", "Black Forest Ham Salad",
+          "Roast Beef Salad", "Cold Cut Combo Salad", "Chicken & Bacon Ranch Salad",
+          "Buffalo Chicken Salad", "Steak & Cheese Salad", "Rotisserie-Style Chicken Salad"
+        ],
+        "Sides & Snacks": [
+          "Lay's Chips", "Doritos", "SunChips", "Baked Lay's", "Miss Vickie's Chips",
+          "GoGo squeeZ Apple Apple", "Chicken Noodle Soup", "Protein Bowl"
+        ],
+        "Drinks": [
+          "Coca-Cola Classic", "Diet Coke", "Coke Zero Sugar", "Sprite", "Fountain Lemonade",
+          "vitaminwater", "Gatorade Cool Blue", "Gold Peak Tea", "Simply Orange",
+          "1% Low Fat Milk", "Chocolate Milk"
+        ],
+        "Cookies & Desserts": [
+          "Chocolate Chip Cookie", "White Chip Macadamia Nut Cookie", "Oatmeal Raisin Cookie",
+          "Raspberry Cheesecake Cookie", "Double Chocolate Cookie"
+        ]
+      }
+    }
+  };
+
+  const postOptions = document.getElementById("postOptions");
+  const restaurantChipsEl = document.getElementById("restaurantChips");
+  const postText = document.getElementById("postText");
+  let selectedRestaurantKey = null;
+
+  postText.addEventListener("focus", () => { postOptions.hidden = false; });
+
+  function menuCategoriesHtml(restaurant) {
+    return Object.keys(restaurant.menu).map((category) => {
+      const items = restaurant.menu[category].map((item) =>
+        `<button type="button" class="menu-item" data-item="${esc(item)}">${esc(item)}</button>`
+      ).join("");
+      return `<div class="menu-category"><h4>${esc(category)}</h4><div class="menu-items">${items}</div></div>`;
+    }).join("");
+  }
+
+  Object.keys(RESTAURANTS).forEach((key) => {
+    const restaurant = RESTAURANTS[key];
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.dataset.restaurant = key;
+    chip.setAttribute("aria-pressed", "false");
+    chip.textContent = `${restaurant.icon} ${restaurant.name}`;
+    restaurantChipsEl.appendChild(chip);
+  });
+
+  function selectRestaurant(key) {
+    const previousRestaurant = selectedRestaurantKey ? RESTAURANTS[selectedRestaurantKey] : null;
+    selectedRestaurantKey = key;
+    restaurantChipsEl.querySelectorAll(".chip").forEach((chip) => {
+      const selected = chip.dataset.restaurant === key;
+      chip.classList.toggle("selected", selected);
+      chip.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+    if (key) {
+      postText.value = RESTAURANTS[key].name;
+    } else if (previousRestaurant && postText.value.trim() === previousRestaurant.name) {
+      postText.value = "";
+    }
+  }
+
+  restaurantChipsEl.addEventListener("click", (e) => {
+    const chip = e.target.closest("button[data-restaurant]");
+    if (!chip) return;
+    const key = chip.dataset.restaurant;
+    selectRestaurant(selectedRestaurantKey === key ? null : key);
+    postText.focus();
+  });
+
+  /* ---------- Availability time pickers (30-minute increments) ---------- */
+  const DAY_MINUTES = 24 * 60;
+  const STEP = 30;
+  const PIXELS_PER_STEP = 12;
+
+  const roundToStep = (mins) => (((Math.round(mins / STEP) * STEP) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+
+  function formatTime(mins) {
+    mins = ((mins % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
+
+  function defaultStartMinutes() {
+    const now = new Date();
+    return roundToStep(now.getHours() * 60 + now.getMinutes() + STEP);
+  }
+
+  let startMinutes = defaultStartMinutes();
+  let endMinutes = (startMinutes + 60) % DAY_MINUTES;
+
+  const startValueEl = document.getElementById("startValue");
+  const endValueEl = document.getElementById("endValue");
+  const startBox = document.getElementById("startBox");
+  const endBox = document.getElementById("endBox");
+
+  function renderTimes() {
+    startValueEl.textContent = formatTime(startMinutes);
+    endValueEl.textContent = formatTime(endMinutes);
+  }
+  renderTimes();
+
+  function resetAvailabilityDefaults() {
+    startMinutes = defaultStartMinutes();
+    endMinutes = (startMinutes + 60) % DAY_MINUTES;
+    renderTimes();
+  }
+
+  function computeExpiry(startMins, endMins) {
+    const base = new Date();
+    base.setHours(0, 0, 0, 0);
+    let expiry = base.getTime() + endMins * 60000;
+    if (endMins <= startMins) expiry += 24 * 60 * 60 * 1000; // availability window spans past midnight
+    return expiry;
+  }
+
+  function adjustTime(target, steps) {
+    const value = target === "start" ? startMinutes : endMinutes;
+    const next = (((value + steps * STEP) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+    if (target === "start") startMinutes = next; else endMinutes = next;
+    renderTimes();
+  }
+
+  document.querySelectorAll(".time-arrow").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      adjustTime(btn.dataset.target, parseInt(btn.dataset.dir, 10));
+    });
+  });
+
+  function enableDragToChangeTime(box, target) {
+    let dragging = false;
+    let startY = 0;
+    let baseValue = 0;
+    let lastSteps = 0;
+
+    function onPointerMove(e) {
+      if (!dragging) return;
+      const deltaY = startY - e.clientY; // moving up increases the time
+      const steps = Math.round(deltaY / PIXELS_PER_STEP);
+      if (steps !== lastSteps) {
+        lastSteps = steps;
+        const next = (((baseValue + steps * STEP) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+        if (target === "start") startMinutes = next; else endMinutes = next;
+        renderTimes();
+      }
+    }
+    function onPointerUp() {
+      dragging = false;
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+    }
+
+    box.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      startY = e.clientY;
+      baseValue = target === "start" ? startMinutes : endMinutes;
+      lastSteps = 0;
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp);
+    });
+
+    box.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      adjustTime(target, e.deltaY < 0 ? 1 : -1);
+    }, { passive: false });
+
+    box.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") { e.preventDefault(); adjustTime(target, 1); }
+      if (e.key === "ArrowDown") { e.preventDefault(); adjustTime(target, -1); }
+    });
+  }
+  enableDragToChangeTime(startBox, "start");
+  enableDragToChangeTime(endBox, "end");
+
+  const now = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const postDateTimeNow = () => new Date().toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const me = () => (userNameEl.value.trim() || "Anonymous");
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function addMessage(msg) {
+    msg.id = "m" + (++seq);
+    msg.time = now();
+    if (msg.type === "post") msg.postDateTime = postDateTimeNow();
+    msg.photos = msg.photos || [];
+    messages.push(msg);
+    render();
+    return msg;
+  }
+
+  function findMessage(id) {
+    return messages.find((m) => m.id === id);
+  }
+
+  function sweepExpiredPosts() {
+    const nowMs = Date.now();
+    const expiredIds = messages
+      .filter((m) => m.type === "post" && m.expiresAt && m.expiresAt <= nowMs)
+      .map((m) => m.id);
+    if (!expiredIds.length) return;
+    if (expiredIds.includes(selectedPostId)) selectedPostId = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (expiredIds.includes(m.id) || expiredIds.includes(m.rootId)) messages.splice(i, 1);
+    }
+  }
+
+  function render() {
+    sweepExpiredPosts();
+    renderPostsList();
+    renderPostThread();
+  }
+
+  // Periodically check for posts whose availability window has ended, even if nothing else triggers a re-render.
+  setInterval(render, 5000);
+
+  function sortPosts(posts, mode) {
+    const copy = posts.slice();
+    if (mode === "time-asc") return copy;
+    if (mode === "restaurant") {
+      return copy.sort((a, b) => {
+        const ra = a.restaurant || "\uFFFF";
+        const rb = b.restaurant || "\uFFFF";
+        return ra.localeCompare(rb);
+      });
+    }
+    return copy.reverse(); // time-desc (default): newest first
+  }
+
+  function postSummaryHtml(m) {
+    const restaurantIcon = (m.restaurantKey && RESTAURANTS[m.restaurantKey]) ? RESTAURANTS[m.restaurantKey].icon : "🍴";
+    const restaurantBadge = m.restaurant ? `<span class="badge">${restaurantIcon} ${esc(m.restaurant)}</span>` : "";
+    const availabilityBadge = (m.availabilityStart && m.availabilityEnd)
+      ? `<span class="badge">⏰ ${esc(m.availabilityStart)} – ${esc(m.availabilityEnd)}</span>`
+      : "";
+    const replyCount = messages.filter((x) => x.type === "reply" && x.rootId === m.id).length;
+    const orderCount = messages.filter((x) => x.type === "order" && x.rootId === m.id).length;
+    const selected = m.id === selectedPostId ? " selected" : "";
+    return `
+      <button type="button" class="post-item${selected}" data-id="${m.id}">
+        <div class="post-item-top"><strong>${esc(m.author)}</strong><span>${m.postDateTime || m.time}</span></div>
+        <div class="post-item-badges">${restaurantBadge}${availabilityBadge}</div>
+        <div class="post-item-text">${esc(m.text)}</div>
+        <div class="post-item-meta">💬 ${replyCount} ${replyCount === 1 ? "reply" : "replies"} · 🧾 ${orderCount} ${orderCount === 1 ? "order" : "orders"}</div>
+      </button>`;
+  }
+
+  function renderPostsList() {
+    const posts = messages.filter((m) => m.type === "post");
+    if (!posts.length) {
+      postsListEl.innerHTML = '<div class="empty">No posts yet. Create one above.</div>';
+      return;
+    }
+    postsListEl.innerHTML = sortPosts(posts, postSortEl.value).map(postSummaryHtml).join("");
+  }
+
+  function renderPostThread() {
+    if (!selectedPostId || !findMessage(selectedPostId)) {
+      selectedPostId = null;
+      postThreadCard.hidden = true;
+      return;
+    }
+    const post = findMessage(selectedPostId);
+    postThreadCard.hidden = false;
+    postThreadTitleEl.textContent = `${post.author}'s post`;
+    const thread = messages.filter((m) => m.id === selectedPostId || m.rootId === selectedPostId);
+    postThreadEl.innerHTML = thread.map(renderMessage).join("");
+    postThreadEl.scrollTop = postThreadEl.scrollHeight;
+  }
+
+  function renderMessage(m) {
+    const parent = m.parentId ? findMessage(m.parentId) : null;
+    const context = parent ? ` <span class="badge">re: ${esc(parent.text.slice(0, 28))}</span>` : "";
+    const restaurantIcon = (m.restaurantKey && RESTAURANTS[m.restaurantKey]) ? RESTAURANTS[m.restaurantKey].icon : "🍴";
+    const restaurantBadge = m.restaurant ? ` <span class="badge">${restaurantIcon} ${esc(m.restaurant)}</span>` : "";
+    const availabilityBadge = (m.availabilityStart && m.availabilityEnd)
+      ? ` <span class="badge">⏰ ${esc(m.availabilityStart)} – ${esc(m.availabilityEnd)}</span>`
+      : "";
+    const photos = m.photos.map((p) =>
+      `<figure class="thumb" style="margin:0"><img src="${p.src}" alt="Photo by ${esc(p.by)}" /><span>${esc(p.by)} — ${esc(p.label)}</span></figure>`
+    ).join("");
+    const timeDisplay = m.type === "post" ? m.postDateTime : m.time;
+
+    return `
+      <article class="msg ${m.type}" data-id="${m.id}">
+        <div class="meta"><strong>${esc(m.author)}</strong> · ${esc(timeDisplay)} · ${labelFor(m)}${restaurantBadge}${availabilityBadge}${context}</div>
+        <div class="body">${esc(m.text)}</div>
+        ${photos ? `<div class="thumbs">${photos}</div>` : ""}
+        <div class="actions">${renderActions(m)}</div>
+      </article>`;
+  }
+
+  function labelFor(m) {
+    if (m.type === "post") return "Post";
+    if (m.type === "order") return `Order ${orderStatus(m)}`;
+    if (m.type === "reply") return "Reply";
+    return "Chat";
+  }
+
+  function orderStatus(m) {
+    if (!m.buyerPhotoDone) return "· awaiting buyer photo";
+    if (!m.posterPhotoDone) return `· awaiting photo from ${esc(m.posterName)}`;
+    return "· complete ✓";
+  }
+
+  function renderActions(m) {
+    const btns = [];
+    if (m.type === "post") {
+      btns.push(`<button class="secondary" data-act="reply" data-id="${m.id}">Reply</button>`);
+      btns.push(`<button class="ok" data-act="order" data-id="${m.id}">Place order</button>`);
+    }
+    if (m.type === "reply") {
+      btns.push(`<button class="secondary" data-act="reply" data-id="${m.rootId || m.parentId}">Reply</button>`);
+      btns.push(`<button class="ok" data-act="order" data-id="${m.rootId || m.parentId}">Place order</button>`);
+    }
+    if (m.type === "order") {
+      if (!m.buyerPhotoDone) {
+        btns.push(`<button data-act="buyerPhoto" data-id="${m.id}">${esc(m.buyerName)}: take picture</button>`);
+      } else if (!m.posterPhotoDone) {
+        btns.push(`<button data-act="posterPhoto" data-id="${m.id}">${esc(m.posterName)}: take picture</button>`);
+      }
+    }
+    return btns.join("");
+  }
+
+  document.getElementById("createPost").addEventListener("click", () => {
+    const input = document.getElementById("postText");
+    const text = input.value.trim();
+    if (!text) { input.focus(); return; }
+    const restaurant = RESTAURANTS[selectedRestaurantKey];
+    const newPost = addMessage({
+      type: "post",
+      author: me(),
+      text,
+      restaurant: restaurant ? restaurant.name : null,
+      restaurantKey: restaurant ? selectedRestaurantKey : null,
+      availabilityStart: formatTime(startMinutes),
+      availabilityEnd: formatTime(endMinutes),
+      expiresAt: computeExpiry(startMinutes, endMinutes)
+    });
+    input.value = "";
+    selectRestaurant(null);
+    postOptions.hidden = true;
+    resetAvailabilityDefaults();
+    selectedPostId = newPost.id;
+    render();
+  });
+
+  postSortEl.addEventListener("change", renderPostsList);
+
+  postsListEl.addEventListener("click", (e) => {
+    const item = e.target.closest("button.post-item");
+    if (!item) return;
+    selectedPostId = item.dataset.id;
+    render();
+    postThreadCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  document.getElementById("postText").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("createPost").click();
+  });
+
+  document.getElementById("switchUser").addEventListener("click", () => {
+    userNameEl.value = userNameEl.value.trim() === "Alex" ? "Jordan" : "Alex";
+  });
+
+  postThreadEl.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const msg = findMessage(btn.dataset.id);
+    if (!msg) return;
+
+    if (btn.dataset.act === "reply") {
+      const text = await askText(`Reply to ${msg.author}'s post`, "");
+      if (text) {
+        addMessage({ type: "reply", author: me(), text, parentId: msg.id, rootId: msg.id });
+      }
+      return;
+    }
+
+    if (btn.dataset.act === "order") {
+      const restaurant = msg.restaurantKey ? RESTAURANTS[msg.restaurantKey] : null;
+      const defaultText = restaurant ? "" : "1 x item";
+      const details = await askText(`Order details for "${msg.text.slice(0, 40)}"`, defaultText, restaurant);
+      if (!details) return;
+      addMessage({
+        type: "order",
+        author: me(),
+        buyerName: me(),
+        posterName: msg.author,
+        text: `Order placed: ${details}`,
+        parentId: msg.id,
+        rootId: msg.id,
+        buyerPhotoDone: false,
+        posterPhotoDone: false
+      });
+      addMessage({ type: "system", author: "System", text: `${me()} must now take a picture to confirm the order.`, rootId: msg.id });
+      return;
+    }
+
+    if (btn.dataset.act === "buyerPhoto" || btn.dataset.act === "posterPhoto") {
+      const isBuyer = btn.dataset.act === "buyerPhoto";
+      const person = isBuyer ? msg.buyerName : msg.posterName;
+      const label = isBuyer ? "order confirmation" : "fulfilment photo";
+      const dataUrl = await takePicture(`${person}: take a picture (${label})`);
+      if (!dataUrl) return;
+      msg.photos.push({ src: dataUrl, by: person, label });
+      if (isBuyer) {
+        msg.buyerPhotoDone = true;
+        addMessage({ type: "system", author: "System", text: `${person} added a photo. Now ${msg.posterName} must take a picture.`, rootId: msg.rootId });
+      } else {
+        msg.posterPhotoDone = true;
+        addMessage({ type: "system", author: "System", text: `${person} added a photo. Order is complete — both pictures are in the chat.`, rootId: msg.rootId });
+      }
+      render();
+    }
+  });
+
+  /* ---------- Text input dialog ---------- */
+  const inputDlg = document.getElementById("inputDialog");
+  const inputText = document.getElementById("inputText");
+  const orderMenuPanel = document.getElementById("orderMenuPanel");
+  const orderMenuCategories = document.getElementById("orderMenuCategories");
+  let resolveText = null;
+
+  function askText(title, initial, restaurant) {
+    document.getElementById("inputTitle").textContent = title;
+    inputText.value = initial || "";
+    if (restaurant) {
+      orderMenuPanel.hidden = false;
+      orderMenuCategories.innerHTML = menuCategoriesHtml(restaurant);
+    } else {
+      orderMenuPanel.hidden = true;
+      orderMenuCategories.innerHTML = "";
+    }
+    inputDlg.showModal();
+    inputText.focus();
+    inputText.select();
+    return new Promise((resolve) => { resolveText = resolve; });
+  }
+
+  orderMenuCategories.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-item]");
+    if (!btn) return;
+    const item = btn.dataset.item;
+    inputText.value = inputText.value.trim() ? inputText.value.trim() + ", " + item : item;
+    inputText.focus();
+    inputText.setSelectionRange(inputText.value.length, inputText.value.length);
+  });
+
+  function finishText(value) {
+    if (inputDlg.open) inputDlg.close();
+    const r = resolveText;
+    resolveText = null;
+    if (r) r(value && value.trim() ? value.trim() : null);
+  }
+
+  document.getElementById("inputOk").addEventListener("click", () => finishText(inputText.value));
+  document.getElementById("inputCancel").addEventListener("click", () => finishText(null));
+  inputDlg.addEventListener("cancel", (e) => { e.preventDefault(); finishText(null); });
+  inputText.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finishText(inputText.value); }
+  });
+
+  /* ---------- Camera ---------- */
+  const dlg = document.getElementById("cameraDialog");
+  const video = document.getElementById("camVideo");
+  const preview = document.getElementById("snapPreview");
+  const errEl = document.getElementById("camError");
+  const btnCapture = document.getElementById("camCapture");
+  const btnRetake = document.getElementById("camRetake");
+  const btnUse = document.getElementById("camUse");
+  const btnCancel = document.getElementById("camCancel");
+  const fileInput = document.getElementById("camFile");
+  let stream = null;
+  let resolveShot = null;
+  let captured = null;
+
+  function takePicture(title) {
+    document.getElementById("camTitle").textContent = title;
+    captured = null;
+    preview.hidden = true;
+    video.hidden = false;
+    errEl.hidden = true;
+    btnCapture.hidden = false;
+    btnCapture.disabled = true;
+    btnRetake.hidden = true;
+    btnUse.hidden = true;
+    fileInput.value = "";
+    dlg.showModal();
+    startStream();
+    return new Promise((resolve) => { resolveShot = resolve; });
+  }
+
+  async function startStream() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      video.srcObject = stream;
+      btnCapture.disabled = false;
+    } catch (err) {
+      errEl.textContent = "Camera unavailable (" + err.name + "). Use the file picker below to take or choose a photo.";
+      errEl.hidden = false;
+      video.hidden = true;
+      btnCapture.disabled = true;
+    }
+  }
+
+  function stopStream() {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+    }
+    video.srcObject = null;
+  }
+
+  function showCaptured(dataUrl) {
+    captured = dataUrl;
+    preview.src = dataUrl;
+    preview.hidden = false;
+    video.hidden = true;
+    btnCapture.hidden = true;
+    btnRetake.hidden = false;
+    btnUse.hidden = false;
+  }
+
+  btnCapture.addEventListener("click", () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    showCaptured(canvas.toDataURL("image/jpeg", 0.8));
+  });
+
+  btnRetake.addEventListener("click", () => {
+    captured = null;
+    preview.hidden = true;
+    btnRetake.hidden = true;
+    btnUse.hidden = true;
+    btnCapture.hidden = false;
+    fileInput.value = "";
+    if (stream) { video.hidden = false; } else { startStream(); }
+  });
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => showCaptured(reader.result);
+    reader.readAsDataURL(file);
+  });
+
+  btnUse.addEventListener("click", () => finish(captured));
+  btnCancel.addEventListener("click", () => finish(null));
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
+
+  function finish(result) {
+    stopStream();
+    if (dlg.open) dlg.close();
+    const r = resolveShot;
+    resolveShot = null;
+    if (r) r(result);
+  }
+})();
+</script>
+</body>
+</html>
